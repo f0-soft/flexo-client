@@ -10,21 +10,18 @@ var starterConfig = _.extend(
 		'flexo-client': require( '../' ),
 		view: Starter.mock.view,
 		controller: Starter.mock.controller,
-		flexo_path: __dirname + '/../node_modules/f0.starter/scheme/flexo',
+		flexo_path: __dirname + '/../test.flexo',
 		type_path: __dirname + '/../node_modules/f0.starter/scheme/types',
-		link_path: __dirname + '/../node_modules/f0.starter/scheme/link',
-		view_path: __dirname + '/../node_modules/f0.starter/scheme/view',
-		template_path: __dirname + '/../node_modules/f0.starter/scheme/tpl',
-		collection_alias: {
-			contacts: 'ct',
-			customers: 'cs'
-		}
+		link_path: __dirname + '/../test.other',
+		view_path: __dirname + '/../test.other',
+		template_path: __dirname + '/../test.other',
+		collection_alias: require( '../test.alias' )
 	}
 );
 
 var client;
-var name = 'customers';
-var fields = ['_id', 'tsUpdate', 'tsCreate', 'name', 'm_id'];
+var name = 'testFlexoClient';
+var fields = ['_id', 'tsUpdate', 'tsCreate', 'name'];
 var memId, memTs, memName;
 
 function rnd() {
@@ -49,7 +46,7 @@ exports['Init'] = function( t ) {
 
 exports['Find'] = function( t ) {
 	catchAll( t );
-	t.expect( 5 );
+	t.expect( 7 );
 
 	client.find( {
 		name: name,
@@ -61,10 +58,15 @@ exports['Find'] = function( t ) {
 
 		t.ok( data );
 		t.notStrictEqual( data.result, undefined );
-		t.notStrictEqual( data.result.length, undefined );
 		t.notStrictEqual( data.idFields, undefined );
 		t.notStrictEqual( data.idFields.length, undefined );
-		t.notStrictEqual( data.count, undefined );
+		t.strictEqual( data.result.length, 0 );
+		t.strictEqual( data.count, 0 );
+
+		if ( data.count !== 0 || data.result.length !== 0 ) {
+			console.log( 'Тестовая коллекция должна быть пустой' );
+			return process.exit();
+		}
 
 		t.done();
 	} );
@@ -78,9 +80,9 @@ exports['Insert'] = function( t ) {
 		name: name,
 		fields: fields,
 		query: [
-			{name: rnd(), m_id: rnd()},
-			{name: rnd(), m_id: rnd()},
-			{name: rnd(), m_id: rnd()}
+			{ name: rnd() },
+			{ name: rnd() },
+			{ name: rnd() }
 		],
 		options: {}
 	}, function( err, data ) {
@@ -174,7 +176,7 @@ exports['Delete'] = function( t ) {
 
 			t.ok( data );
 			t.strictEqual( data.length, 1 );
-			t.strictEqual( data[0], memId );
+			t.strictEqual( data[0]._id, memId );
 
 			client.find( {
 				name: name,
@@ -187,6 +189,48 @@ exports['Delete'] = function( t ) {
 				t.ok( data );
 				t.strictEqual( data.result.length, 2 );
 				t.strictEqual( data.count, 2 );
+
+				t.done();
+			} );
+		} )
+	} );
+};
+
+exports['Clear'] = function( t ) {
+	catchAll( t );
+	t.expect( 10 );
+
+	client.find( {
+		name: name,
+		fields: fields,
+		query: {},
+		options: {count: true}
+	}, function( err, data ) {
+		t.ifError( err );
+
+		t.strictEqual( data.result.length, 2 );
+		t.strictEqual( data.count, 2 );
+
+		client.delete( {
+			name: name,
+			query: data.result
+		}, function( err, data ) {
+			t.ifError( err );
+
+			t.ok( data );
+			t.strictEqual( data.length, 2 );
+
+			client.find( {
+				name: name,
+				fields: fields,
+				query: {},
+				options: {count: true}
+			}, function( err, data ) {
+				t.ifError( err );
+
+				t.ok( data );
+				t.strictEqual( data.result.length, 0 );
+				t.strictEqual( data.count, 0 );
 
 				t.done();
 			} );
