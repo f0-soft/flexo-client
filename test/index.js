@@ -25,6 +25,7 @@ var starterConfig = _.extend(
 var client;
 var name = 'customers';
 var fields = ['_id', 'tsUpdate', 'tsCreate', 'name', 'm_id'];
+var memId, memTs, memName;
 
 function rnd() {
 	return parseInt( Math.random() * 10000 ).toString( 10 );
@@ -46,9 +47,9 @@ exports['Init'] = function( t ) {
 	} );
 };
 
-exports['Find empty'] = function( t ) {
+exports['Find'] = function( t ) {
 	catchAll( t );
-	t.expect( 2 );
+	t.expect( 5 );
 
 	client.find( {
 		name: name,
@@ -59,6 +60,11 @@ exports['Find empty'] = function( t ) {
 		t.ifError( err );
 
 		t.ok( data );
+		t.notStrictEqual( data.result, undefined );
+		t.notStrictEqual( data.result.length, undefined );
+		t.notStrictEqual( data.idFields, undefined );
+		t.notStrictEqual( data.idFields.length, undefined );
+		t.notStrictEqual( data.count, undefined );
 
 		t.done();
 	} );
@@ -66,7 +72,7 @@ exports['Find empty'] = function( t ) {
 
 exports['Insert'] = function( t ) {
 	catchAll( t );
-	t.expect( 2 );
+	t.expect( 11 );
 
 	client.insert( {
 		name: name,
@@ -81,14 +87,71 @@ exports['Insert'] = function( t ) {
 		t.ifError( err );
 
 		t.ok( data );
+		t.notStrictEqual( data.result, undefined );
+		t.notStrictEqual( data.idFields, undefined );
 
-		t.done();
+		client.find( {
+			name: name,
+			fields: fields,
+			query: {},
+			options: {count: true}
+		}, function( err, data ) {
+			t.ifError( err );
+
+			t.ok( data );
+			t.notStrictEqual( data.result, undefined );
+			t.notStrictEqual( data.idFields, undefined );
+			t.notStrictEqual( data.count, undefined );
+			t.strictEqual( data.result.length, 3 );
+			t.strictEqual( data.count, 3 );
+
+			memId = data.result[1]._id;
+			memTs = data.result[1].tsUpdate;
+
+			t.done();
+		} );
 	} )
 };
 
-exports['Find inserted'] = function( t ) {
+exports['Modify'] = function( t ) {
 	catchAll( t );
-	t.expect( 2 );
+	t.expect( 10 );
+	memName = rnd();
+
+	client.modify( {
+		name: name,
+		query: [
+			{selector: {_id: memId, tsUpdate: memTs}, properties: {name: memName}}
+		]
+	}, function( err, data ) {
+		t.ifError( err );
+
+		t.ok( data );
+		t.strictEqual( data.length, 1 );
+		t.strictEqual( data[0]._id, memId );
+		t.notStrictEqual( data[0].tsUpdate, memTs );
+
+		client.find( {
+			name: name,
+			fields: fields,
+			query: {_id: memId},
+			options: {count: true}
+		}, function( err, data ) {
+			t.ifError( err );
+
+			t.ok( data );
+			t.strictEqual( data.result.length, 1 );
+			t.strictEqual( data.result[0]._id, memId );
+			t.strictEqual( data.result[0].name, memName );
+
+			t.done();
+		} );
+	} );
+};
+
+exports['Delete'] = function( t ) {
+	catchAll( t );
+	t.expect( 9 );
 
 	client.find( {
 		name: name,
@@ -98,9 +161,36 @@ exports['Find inserted'] = function( t ) {
 	}, function( err, data ) {
 		t.ifError( err );
 
-		t.ok( data );
+		memId = data.result[0]._id;
+		memTs = data.result[0].tsUpdate;
 
-		t.done();
+		client.delete( {
+			name: name,
+			query: [
+				{_id: memId, tsUpdate: memTs}
+			]
+		}, function( err, data ) {
+			t.ifError( err );
+
+			t.ok( data );
+			t.strictEqual( data.length, 1 );
+			t.strictEqual( data[0], memId );
+
+			client.find( {
+				name: name,
+				fields: fields,
+				query: {},
+				options: {count: true}
+			}, function( err, data ) {
+				t.ifError( err );
+
+				t.ok( data );
+				t.strictEqual( data.result.length, 2 );
+				t.strictEqual( data.count, 2 );
+
+				t.done();
+			} );
+		} )
 	} );
 };
 
